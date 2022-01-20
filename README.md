@@ -1,5 +1,6 @@
 # Android_10_mount_system(read/write)
-- 解锁安卓10的system分区并自动扩大分区
+- 解锁安卓10的system分区并自动扩大分区(可以扩大多少取决于整个super分区还剩多少空间)
+- 一个super分区可以包含system，product，vendor，odm(这个不一定在super里面)，这里是同时扩大以上分区 https://source.android.google.cn/devices/tech/ota/dynamic_partitions/implement?hl=zh-cn
 - 把文件用压缩文件打包成zip即可使用，内部文件目录必须是
 ```
 - bin
