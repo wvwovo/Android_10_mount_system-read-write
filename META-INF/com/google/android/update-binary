@@ -1,0 +1,450 @@
+#!/sbin/sh
+#/system/bin/sh
+#上面两个可能导致刷入zip错误255
+#=================================================
+# This script to convert Super partition to RW
+#=================================================
+#该脚本来自https://androidfilehost.com/?fid=7161016148664805646 twrp-3.5.2_10-3-lime-brigudav makerw.zip
+#设置工作目录
+baze_dir=/data/local/super2rw
+MODDIR=$baze_dir
+#OUTFD 和安装zip显示输出日志有关系
+#有些twrp不支持中文，如果用中文输出信息会乱码
+OUTFD=/proc/self/fd/$2
+ZIP=$3
+ZIPFILE=$ZIP
+DIR=$(dirname "$ZIP")
+
+#输出日志
+ui_print() {
+  until [ ! "$1" ]; do
+    echo "ui_print $1
+      ui_print" >> "$OUTFD"
+    shift
+  done
+}
+
+ui_print " "
+ui_print "==============================================="
+ui_print "|  Run the script to convert the Super to RW  |"
+ui_print "==============================================="
+ui_print " "
+
+#判断是否有root
+if [ `whoami` != "root" ]; then ui_print "No root detected. Please try again as root. Abort"; exit 1; else ui_print "find root"; fi
+#判断是否在twrp
+if ( which twrp>/dev/null ); then ui_print "Device is in custom recovery mode"; else ui_print "Device is in Android mode. Ignoring"; exit 1; fi
+#判断cpu的架构，备注安卓系统内显示的架构不一定和twrp内显示的一致，例如红米9a是64位的cpu装了32位的系统
+abi="$(getprop ro.product.cpu.abi)"
+ui_print "-The CPU architecture: $abi"
+
+#挂载data分区
+mount /data 2>/dev/null
+
+#删除/data/local/super2rw文件夹
+rm -rf "$MODDIR"
+
+#创建/data/local/super2rw文件夹
+mkdir -p $baze_dir
+
+#从根目录跳转到/data/local/super2rw这个位置
+cd $baze_dir || abort "- Error creating folder $baze_dir"
+
+#安装二进制文件
+#二进制文件来自https://forum.xda-developers.com/t/script-android-10-universal-mount-system-r-w-read-write.4247311/ 和 twrp-3.5.2_10-3-lime-brigudav https://github.com/YAWAsau/backup_script
+ui_print "Installing binaries"
+unzip -o "$ZIPFILE" 'bin/lpdump' -d "$MODDIR"
+unzip -o "$ZIPFILE" 'bin/lpmake' -d "$MODDIR"
+unzip -o "$ZIPFILE" 'bin/lpunpack' -d "$MODDIR"
+unzip -o "$ZIPFILE" 'bin/avbctl' -d "$MODDIR"
+unzip -o "$ZIPFILE" 'bin/e2fsck' -d "$MODDIR"
+unzip -o "$ZIPFILE" 'bin/resize2fs' -d "$MODDIR"
+unzip -o "$ZIPFILE" 'bin/simg2img' -d "$MODDIR"
+unzip -o "$ZIPFILE" 'bin/tune2fs' -d "$MODDIR"
+unzip -o "$ZIPFILE" 'bin/busybox' -d "$MODDIR"
+
+#给/data/local/super2rw/bin/ 给授权否则无法二进制文件会因为权限不足无法运行 https://www.cnblogs.com/whowhere/p/10499673.html
+chmod -R 0755 "$MODDIR/bin/"
+busybox="$MODDIR/bin/busybox"
+
+#创建xbin文件夹专门用来装busybox的软链接
+mkdir -p "$MODDIR/xbin"
+#busybox的tune2fs不能用
+
+'''
+BusyBox 是标准 Linux 工具的一个单个可执行实现。BusyBox 包含了一些简单的工具，例如 cat 和 echo，还包含了一些更大、更复杂的工具，例如 grep、find、mount 以及 telnet。简单的说BusyBox就好像是个大工具箱，它集成压缩了 Linux 的许多工具和命令。
+'''
+#busybox软链接代码来自https://github.com/YAWAsau/backup_script
+#ui_print "REPLY:$REPLY"
+#排除创建tune2fs软链接
+#https://www.runoob.com/linux/linux-shell-basic-operators.html
+
+"$busybox" --list | while read; do
+	case $REPLY in
+	tar) ;;
+	*)
+    if [ "$REPLY" != "tune2fs" ];then 
+        #ui_print "$REPLY"
+        ln -s "$busybox" "$MODDIR/xbin/$REPLY"
+    fi
+	  ;;
+	esac
+done
+
+#设置环境依赖,仅在安装zip刷机包过程中有效
+export PATH="$MODDIR/bin:$MODDIR/xbin:$PATH"
+
+tmp=$(stat -c "%s" $MODDIR/bin/lpdump)
+ui_print "stat_test:$tmp"
+
+#判断有没有shared_blocks，是不是因为shared_blocks导致system分区为只读状态
+touch $baze_dir/my_tune2fs_output.txt
+#https://www.cnblogs.com/xiaoyuxixi/p/12739468.html seq 用于生成从一个数到另一个数之间的所有整数。seq 0 5 生成数字0到5
+for i in `seq 0 5`; do tune2fs -l /dev/block/dm-$i>>$baze_dir/my_tune2fs_output.txt; done
+#https://forum.xda-developers.com/t/script-android-10-universal-mount-system-r-w-read-write.4247311/
+'''
+To check whether or not your device has the notorious shared_blocks read-only feature you can run these commands in Android:
+Bash:
+adb shell
+su
+touch /sdcard/my_tune2fs_output.txt
+for i in `seq 0 5`; do tune2fs -l /dev/block/dm-$i>>/sdcard/my_tune2fs_output.txt; done
+'''
+
+#去除dm校验
+avbctl --force disable-verification >/dev/null
+avbctl --force disable-verity >/dev/null
+
+#成功提示
+success() {
+  #cleanup
+  ui_print "==============================================="
+  ui_print "|        Done! Your Super are now RW          |"
+  ui_print "-----------------------------------------------"
+  ui_print "|        Please reboot to System              |"
+  ui_print "==============================================="
+  exit 0
+}
+
+#中止
+abort() {
+  ui_print "$@"
+  ui_print "==============================================="
+  #cleanup
+  exit 1
+}
+
+#得到当前img文件合计大小(这个没有使用到)
+get_size() {
+  file_size=0
+  for i in $(cat "$size_source"); do
+    file_size=$(echo $file_size "$i" | awk '{print $1 + $2}')
+  done
+  echo -n "--group $partition_group:$file_size">>"$super_config"
+  #rm -f "$size_source"
+}
+
+#获取img文件大小
+actual_size() {
+  #ui_print "actual_size:$1"
+  orig_size=$(stat -c "%s" "$1")
+  ui_print "- $bl_name: actual size - $orig_size"
+}
+
+#清理img文件
+cleanimg() {
+  for file in $1; do
+    rm -f "$file"
+  done
+}
+
+newsize() {
+  actual_size "$1"
+  ui_print "newsize:$1,$orig_size"
+  newBS=$(echo "$orig_size" | awk '{print ($1 * 1.25) / 512}')
+  ui_print "newBS:$newBS"
+  #newBS为新增大小？
+}
+
+#删掉/data/local/super2rw文件夹
+cleanup() {
+  [ ! -z $baze_dir ] && rm -rf $baze_dir
+  ui_print "- Project folder $baze_dir cleared"
+}
+
+up_size() {
+  ui_print "up_size:$1,$2"
+  #resize2fs: New size smaller than minimum (1120378)
+  if ( ! resize2fs -f "$1" "$2""s" ); then
+    abort "- $bl_name: error resize"
+  else
+    ui_print "- $bl_name: resized"
+  fi
+}
+#这里是用来解除只读属性的
+unshare(){
+    ui_print "- $bl_name: clearing fs feature 'shared_blocks'..."
+    if ( ! e2fsck -y -E unshare_blocks "$1" > /dev/null ); then
+      ui_print "- $bl_name: problem clearing fs feature 'shared_blocks'"
+    else
+      ui_print "- $bl_name: feature clear"
+    fi
+}
+'''
+Usage: e2fsck [-panyrcdfktvDFV] [-b superblock] [-B blocksize]
+                [-l|-L bad_blocks_file] [-C fd] [-j external_journal]
+                [-E extended-options] [-z undo_file] device
+
+Emergency help:
+ -p                   Automatic repair (no questions)
+ -n                   Make no changes to the filesystem
+ -y                   Assume "yes" to all questions
+ -c                   Check for bad blocks and add them to the badblock list
+ -f                   Force checking even if filesystem is marked clean
+ -v                   Be verbose
+ -b superblock        Use alternative superblock
+ -B blocksize         Force blocksize when looking for superblock
+ -j external_journal  Set location of the external journal
+ -l bad_blocks_file   Add to badblocks list
+ -L bad_blocks_file   Set badblocks list
+ -z undo_file         Create an undo file
+
+e2fsck -y -E shared_blocks /data/local/super2rw/obraz/system.img
+Unknown extended option: shared_blocks
+
+Extended options are separated by commas, and may take an argument which
+is set off by an equals ('=') sign.  Valid extended options are:
+
+        ea_ver=<ea_version (1 or 2)>
+        fragcheck
+        journal_only
+        discard
+        nodiscard
+        optimize_extents
+        no_optimize_extents
+        inode_count_fullmap
+        no_inode_count_fullmap
+        readahead_kb=<buffer size>
+        bmap2extent
+        unshare_blocks
+        fixes_only
+'''
+rw_mod() {
+  #temp4来自上一级函数
+  #ui_print "temp42:$temp4"
+  '''
+  img_name=${1//*\/}
+  bl_name=${img_name%.*}
+  上面两个有些手机能用，有些不能用，原因不知道
+  '''
+  bl_name=$block_name
+  newsize "$1"
+  #$1是获取前面参数，这里指/data/local/super2rw/*.img的路径
+  #ui_print "orig_size:$orig_size"
+  '''
+  -eq	检测两个数是否相等，相等返回 true。	[ $a -eq $b ] 返回 false。
+  -ne	检测两个数是否不相等，不相等返回 true。	[ $a -ne $b ] 返回 true。
+  -gt	检测左边的数是否大于右边的，如果是，则返回 true。	[ $a -gt $b ] 返回 false。
+  -lt	检测左边的数是否小于右边的，如果是，则返回 true。	[ $a -lt $b ] 返回 true。
+  -ge	检测左边的数是否大于等于右边的，如果是，则返回 true。	[ $a -ge $b ] 返回 false。
+  -le	检测左边的数是否小于等于右边的，如果是，则返回 true。	[ $a -le $b ] 返回 true。 
+  https://www.runoob.com/linux/linux-shell-basic-operators.html
+  
+  解决大整数比较会失灵
+  if (( ! $orig_size == 0 )); then 2826846208在有些手机会失灵
+  https://www.cnblogs.com/betterquan/p/11743627.html
+  '''
+  temp=$(awk -v  a=$orig_size -v b=0  'BEGIN{print(a>b)?"1":"0"}')
+  echo $temp
+  if [ $temp -eq "1" ]; then
+    up_size "$1" "$newBS"
+    ui_print "path:$1,$newBS"
+    #tune2fs 获取filesystem信息
+    vol=$(tune2fs -l $1 2>/dev/null | grep "feat")
+    ui_print "$bl_name:$vol"
+    if [ ! -z "${vol:20}" ]; then
+      if [[ "${vol:20}" == *"shared_blocks"* ]]; then
+          unshare "$1"
+      else
+          ui_print "- $bl_name: NO detected fs feature 'shared_blocks'"
+      fi
+      resize2fs -f -M "$1"
+      actual_size "$1"
+      
+      #不知道，但这个可以修改img文件的大小为后面扩大system分区做准备
+      #例如new_size=$(echo "$orig_size" 100 | awk '{print $1 + ($2 * 1024 * 1024) +440000000}') +440000000是(总super分区大小-已占super分区大小)/super里面有几个分区（system、product、odm、vendor就是4个），然后再适当把数字选小一点填上去
+    
+      new_size=$(echo "$orig_size" "$temp4" | awk '{print $1 + $2}')
+      #原始参数
+      #new_size=$(echo "$orig_size" 100 | awk '{print $1 + ($2 * 1024 * 1024)}')
+      
+      new_block_size=$(echo "$new_size" | awk '{print int($1 / 512)}')
+      ui_print "- $bl_name: new size - $new_size , new_block_size - $new_block_size"
+      up_size "$1" "$new_block_size"
+    fi
+  fi
+  actual_size "$1"
+  ui_print "------------------------------------------------"
+}
+
+make_super() {
+  if [ -z "$out_dir" ]; then
+    supermod=$f_dir"/super_mod.bin"
+  else
+    supermod=$out_dir
+  fi
+  #创建super_mod.bin需要这个文件里的参数
+  super_config="./s_config.txt"
+  
+  #记录原始各分区有多大
+  size_source="./file_size.txt"
+
+  #下面全是写东西到s_config.txt里
+  echo -n "--metadata-size 65536 --super-name super --sparse --output $supermod ">$super_config
+  metadata_max_size=$(grep -F -m 1 "Size:" $lploger | awk '{print $2}')
+  #metadata_max_size为super.img最大大小
+  echo -n "--device super:$metadata_max_size ">>$super_config
+  metadata_slot_count=$(grep -F -m 1 "slot" $lploger | awk '{print $NF}')
+  echo -n "--metadata-slots $metadata_slot_count ">>$super_config
+  partition_group=$(grep -F -m 1 "Group:" $lploger |awk '{print $NF}')
+
+  #这是得到/data/local/super2rw/obraz 路径字符串用来计算文字长度，用来提取img文件的名字
+  string1="$f_dir"
+  ui_print "$string1"
+
+  #获取字符串长度
+  len1=${#string1}
+  #解决长度不够，少了"/""
+  len1=$(expr $len1 + 1)
+
+  #https://blog.csdn.net/yumushui/article/details/53469845
+  countimg=0
+  for i in $f_dir/*.img; do
+    tmp=$(stat -c "%s" "$i")
+    echo $tmp>>$size_source
+    #((countimg++))
+    countimg=$(echo $countimg | awk '{print $1 + 1}')
+  done
+  file_size=0
+  for i in $(cat "$size_source"); do
+    file_size=$(echo $file_size "$i" | awk '{print $1 + $2}')
+  done
+  #super分区最大空间
+  ui_print "metadata_max_size:$metadata_max_size"
+  #有几个super子分区
+  ui_print "countimg:$countimg"  
+  #最大空间-已用空间
+  ui_print "file_size:$file_size"
+  temp2=$(expr $metadata_max_size - $file_size)
+  ui_print "temp2:$temp2"
+  #剩余空间/有几个super子分区
+  temp3=$(expr $temp2 / $countimg)
+  #y不能等于1，否则无法生成super.mod.bin
+  temp4=`awk -v x=$temp3 -v y=0.9 'BEGIN{printf("%.0f",x*y)}'`
+  ui_print "temp3:$temp3"
+  ui_print "temp4:$temp4"
+  #https://www.codercto.com/a/21441.html 
+  #https://blog.51cto.com/radish/1736900
+
+  #ui_print "$len1"
+  for i in $f_dir/*.img; do
+    ui_print "path:$i"
+    len2=${#i}
+    #ui_print "$len2"
+    len3=$(expr $len2 - 4)
+    len4=$(expr $len3 - $len1)
+    ui_print "len4: $len4"
+
+    #从字符串第len1个字符开始提取len4个字符,这就是img文件名
+    string3=${i:$len1:$len4}
+    #${i//*\/}
+    ui_print "fname:$string3"
+    block_name=$string3
+    echo -n "--image $block_name=$i ">>$super_config
+    #ui_print "rw_mod2:$i"
+    rw_mod $i
+    #echo $orig_size>>$size_source
+    echo -n "--partition $block_name:none:$orig_size:$partition_group ">>$super_config
+  done
+
+  #get_size
+
+  #向super_config写最大使用super空间参数
+  echo -n "--group $partition_group:$metadata_max_size">>"$super_config"
+
+  ui_print "- Joining all extracted .img into Super"
+  ui_print "- Please wait..."
+
+  #得到所有参数
+  s_config=$(cat "./s_config.txt")
+  '''
+  以下为部分结果记录
+  Invalid sparse file format at header magic
+  可以无视
+
+  Not enough space on device for partition vendor with size 953405440
+  空间不够创建不了
+  '''
+  if ( lpmake $s_config ); then
+    #rm -f $super_config
+    ui_print "- Successfully created moded Super.img"
+  else
+    abort "- Failed to create moded Super.img"
+  fi
+  ui_print "- Flash Super.mod.img. Please wait..."
+
+  #把合成出来的super_mod.bin刷回super分区里
+  if ( ! simg2img $supermod $super_block ); then
+    abort "- Error flash"
+  else
+    ui_print "- Flashed successfully."
+    success
+  fi
+}
+
+superimg_extract() {
+  if [ -z "$input_dir" ]; then
+    ui_print "- Dumping Super.img partition"
+    ui_print "- Please wait..."
+    #得到super分区，文件名为super_stock.bin
+    if ( dd if="$super_block" of="$dump_dir" ); then
+      ui_print "- Successfully dumped stock Super.img"
+    else
+      abort "- Error: Failed to dump stock Super.img"
+    fi
+  fi
+  ui_print "- Extracting partitions from Super..."
+  #cleanimg "$f_dir/*.img"
+  #分解super_stock.bin，获得system.img,product.img,vendor.img等文件
+  if ( lpunpack "$dump_dir" "$f_dir" ); then
+    if ( ! ls -1 "$f_dir"/*.img>/dev/null ); then
+      abort "- Extracted partitions not be found. Please try again."
+    else
+      ui_print "- Partitions successfully extracted"
+      make_super
+    fi
+  else
+    abort "- Please make sure the Super.img exists and try again."
+  fi
+}
+
+run_project() {
+  f_dir=$baze_dir"/obraz" && mkdir -p "$f_dir"
+  
+  #寻找super分区的位置
+  super_block=$(ls -Alg /dev/block/by-name | grep "super" | awk '{print $NF}')
+
+  if [ -z "$input_dir" ]; then
+    dump_dir=$f_dir"/super_stock.bin"
+  else
+    dump_dir=$input_dir
+  fi
+  if [ ! -z "$super_block" ]; then
+    ui_print "- Super partition found: $super_block"
+    lploger="./lpdump.txt"
+    #得到super分区相关信息,为后面做准备
+    lpdump > $lploger
+    superimg_extract
+  fi
+}
+run_project
