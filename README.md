@@ -33,11 +33,11 @@ su
 touch /sdcard/my_tune2fs_output.txt
 for i in `seq 0 5`; do tune2fs -l /dev/block/dm-$i>>/sdcard/my_tune2fs_output.txt; done
 ```
-## 参考了
-- https://gitee.com/sharpeter/DNA 拆红米twrp，找到\ramdisk\tools\makerw.zip
-- https://androidfilehost.com/?fid=7161016148664805646 twrp-3.5.2_10-3-lime-brigudav
-- https://github.com/YAWAsau/backup_script
-- https://forum.xda-developers.com/t/script-android-10-universal-mount-system-r-w-read-write.4247311/ systemrw_1.32_flashable.zip
+## 参考&使用
+- https://gitee.com/sharpeter/DNA 拆twrp，找到\ramdisk\tools\makerw.zip
+- https://androidfilehost.com/?fid=7161016148664805646 twrp-3.5.2_10-3-lime-brigudav , 红米 note9 4g 的twrp(该twrp支持安卓10的miui12和安卓11的miui12.5)
+- https://github.com/YAWAsau/backup_script 一些可执行文件和代码
+- https://forum.xda-developers.com/t/script-android-10-universal-mount-system-r-w-read-write.4247311/ systemrw_1.32_flashable.zip 一些可执行文件和代码
 
 ## 其它
 - 1
@@ -50,3 +50,5 @@ for i in `seq 0 5`; do tune2fs -l /dev/block/dm-$i>>/sdcard/my_tune2fs_output.tx
 //343行
 temp4=`awk -v x=$temp3 -v y=0.9 'BEGIN{printf("%.0f",x*y)}'`
 ```
+- 3
+ 红米9a 联发科 32位系统 安卓10和11也可以用，但要直接在twrp修改system分区还需要这个https://github.com/wvwovo/redmi9a_android10_twrp_mount_system_rw
