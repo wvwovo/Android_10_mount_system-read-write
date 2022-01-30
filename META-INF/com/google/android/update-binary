@@ -1,6 +1,8 @@
 #!/sbin/sh
 #/system/bin/sh
 #上面两个可能导致刷入zip错误255
+#https://www.jianshu.com/p/b03ad01acd69 CRLF、CR、LF详解;要选择UNIX(LF),否则刷入时也会报255错误;E:Can't execute '/tmp/updater': No such file or directory,Updater过程结束，错误：255
+#https://forum.xda-developers.com/t/dev-template-complete-shell-script-flashable-zip-replacement-signing-script.2934449/page-5
 #=================================================
 # This script to convert Super partition to RW
 #=================================================
