@@ -9,9 +9,9 @@ product 1
 system 1
 vendor 1
 ```
-把1改成0就是这个分区不扩区，全1就是平均扩大所有分区，全0就是只解锁分区(因为resize2fs，所以分区大小还是有轻微变化，暂时不动)
+把1改成0就是这个分区不扩区，全1就是平均扩大所有分区，全0就是只解锁分区(因为resize2fs，所以分区大小还是有轻微变化，这里暂时不动)
 
-- 一个super分区可以包含 system ，product ，vendor ，odm , system_ext (odm不一定在super里面)，每个手机的情况可能都有所不同 https://source.android.google.cn/devices/tech/ota/dynamic_partitions/implement?hl=zh-cn
+- 一个super分区可以包含 system ，product ，vendor ，odm , system_ext (odm不一定在super里面)，每个手机的情况都不一样，看具体情况 https://source.android.google.cn/devices/tech/ota/dynamic_partitions/implement?hl=zh-cn
 - 把文件用压缩文件打包成zip即可使用，内部文件目录必须是
 ```
 - bin
