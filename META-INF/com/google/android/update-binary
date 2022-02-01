@@ -1,5 +1,7 @@
 #!/sbin/sh
+#magisks是用/sbin/sh,所以这里也用这个
 #/system/bin/sh
+#version 1.0.2
 #上面两个可能导致刷入zip错误255
 #https://www.jianshu.com/p/b03ad01acd69 CRLF、CR、LF详解;要选择UNIX(LF),否则刷入时也会报255错误;E:Can't execute '/tmp/updater': No such file or directory,Updater过程结束，错误：255
 #https://forum.xda-developers.com/t/dev-template-complete-shell-script-flashable-zip-replacement-signing-script.2934449/page-5
@@ -7,9 +9,25 @@
 # This script to convert Super partition to RW
 #=================================================
 #该脚本来自https://androidfilehost.com/?fid=7161016148664805646 twrp-3.5.2_10-3-lime-brigudav makerw.zip
+
+
+tmpdir=/dev/tmp
+rm -rf $tmpdir
+mkdir -p -v $tmpdir 2>/dev/null
+'''
+https://www.cnblogs.com/MineGi/p/12161174.html 
+shell命令--mkdir 
+-p：递归创建目录，如果目录事先存在，也不会报错*
+-m：设置新创建的目录的默认目录对应的权限
+-v：显示创建的过程
+'''
+
 #设置工作目录
 baze_dir=/data/local/super2rw
 MODDIR=$baze_dir
+setting=$baze_dir"/setting.txt"
+#suo=$baze_dir"/suo.txt"
+
 #OUTFD 和安装zip显示输出日志有关系
 #有些twrp不支持中文，如果用中文输出信息会乱码
 OUTFD=/proc/self/fd/$2
@@ -26,12 +44,11 @@ ui_print() {
   done
 }
 
-ui_print " "
 ui_print "==============================================="
 ui_print "|  Run the script to convert the Super to RW  |"
 ui_print "==============================================="
-ui_print " "
 
+ui_print "version 1.0.2"
 #判断是否有root
 if [ `whoami` != "root" ]; then ui_print "No root detected. Please try again as root. Abort"; exit 1; else ui_print "find root"; fi
 #判断是否在twrp
@@ -44,7 +61,18 @@ ui_print "-The CPU architecture: $abi"
 mount /data 2>/dev/null
 
 #删除/data/local/super2rw文件夹
-rm -rf "$MODDIR"
+#rm -rf "$MODDIR"
+
+#存在suo.txt文件不清理bin,xbin,obraz;
+if [[ ! -f $setting ]];then
+    rm -rf $baze_dir"/bin"
+    rm -rf $baze_dir"/xbin"
+    rm -rf $baze_dir"/obraz"
+fi
+rm -rf $baze_dir"/file_size.txt"
+rm -rf $baze_dir"/lpdump.txt"
+rm -rf $baze_dir"/my_tune2fs_output.txt"
+rm -rf $baze_dir"/s_config.txt"
 
 #创建/data/local/super2rw文件夹
 mkdir -p $baze_dir
@@ -52,46 +80,48 @@ mkdir -p $baze_dir
 #从根目录跳转到/data/local/super2rw这个位置
 cd $baze_dir || abort "- Error creating folder $baze_dir"
 
-#安装二进制文件
-#二进制文件来自https://forum.xda-developers.com/t/script-android-10-universal-mount-system-r-w-read-write.4247311/ 和 twrp-3.5.2_10-3-lime-brigudav https://github.com/YAWAsau/backup_script
-ui_print "Installing binaries"
-unzip -o "$ZIPFILE" 'bin/lpdump' -d "$MODDIR"
-unzip -o "$ZIPFILE" 'bin/lpmake' -d "$MODDIR"
-unzip -o "$ZIPFILE" 'bin/lpunpack' -d "$MODDIR"
-unzip -o "$ZIPFILE" 'bin/avbctl' -d "$MODDIR"
-unzip -o "$ZIPFILE" 'bin/e2fsck' -d "$MODDIR"
-unzip -o "$ZIPFILE" 'bin/resize2fs' -d "$MODDIR"
-unzip -o "$ZIPFILE" 'bin/simg2img' -d "$MODDIR"
-unzip -o "$ZIPFILE" 'bin/tune2fs' -d "$MODDIR"
-unzip -o "$ZIPFILE" 'bin/busybox' -d "$MODDIR"
+if [[ ! -f $setting ]];then
+    #安装二进制文件
+    #二进制文件来自https://forum.xda-developers.com/t/script-android-10-universal-mount-system-r-w-read-write.4247311/ 和 twrp-3.5.2_10-3-lime-brigudav https://github.com/YAWAsau/backup_script
+    ui_print "Installing binaries"
+    unzip -o "$ZIPFILE" 'bin/lpdump' -d "$MODDIR"
+    unzip -o "$ZIPFILE" 'bin/lpmake' -d "$MODDIR"
+    unzip -o "$ZIPFILE" 'bin/lpunpack' -d "$MODDIR"
+    unzip -o "$ZIPFILE" 'bin/avbctl' -d "$MODDIR"
+    unzip -o "$ZIPFILE" 'bin/e2fsck' -d "$MODDIR"
+    unzip -o "$ZIPFILE" 'bin/resize2fs' -d "$MODDIR"
+    unzip -o "$ZIPFILE" 'bin/simg2img' -d "$MODDIR"
+    unzip -o "$ZIPFILE" 'bin/tune2fs' -d "$MODDIR"
+    unzip -o "$ZIPFILE" 'bin/busybox' -d "$MODDIR"
 
-#给/data/local/super2rw/bin/ 给授权否则无法二进制文件会因为权限不足无法运行 https://www.cnblogs.com/whowhere/p/10499673.html
-chmod -R 0755 "$MODDIR/bin/"
-busybox="$MODDIR/bin/busybox"
+    #给/data/local/super2rw/bin/ 给授权否则无法二进制文件会因为权限不足无法运行 https://www.cnblogs.com/whowhere/p/10499673.html
+    chmod -R 0755 "$MODDIR/bin/"
+    busybox="$MODDIR/bin/busybox"
 
-#创建xbin文件夹专门用来装busybox的软链接
-mkdir -p "$MODDIR/xbin"
-#busybox的tune2fs不能用
+    #创建xbin文件夹专门用来装busybox的软链接
+    mkdir -p "$MODDIR/xbin"
+    #busybox的tune2fs不能用
 
-'''
-BusyBox 是标准 Linux 工具的一个单个可执行实现。BusyBox 包含了一些简单的工具，例如 cat 和 echo，还包含了一些更大、更复杂的工具，例如 grep、find、mount 以及 telnet。简单的说BusyBox就好像是个大工具箱，它集成压缩了 Linux 的许多工具和命令。
-'''
-#busybox软链接代码来自https://github.com/YAWAsau/backup_script
-#ui_print "REPLY:$REPLY"
-#排除创建tune2fs软链接
-#https://www.runoob.com/linux/linux-shell-basic-operators.html
+    '''
+    BusyBox 是标准 Linux 工具的一个单个可执行实现。BusyBox 包含了一些简单的工具，例如 cat 和 echo，还包含了一些更大、更复杂的工具，例如 grep、find、mount 以及 telnet。简单的说BusyBox就好像是个大工具箱，它集成压缩了 Linux 的许多工具和命令。
+    '''
+    #busybox软链接代码来自https://github.com/YAWAsau/backup_script
+    #ui_print "REPLY:$REPLY"
+    #排除创建tune2fs软链接
+    #https://www.runoob.com/linux/linux-shell-basic-operators.html
 
-"$busybox" --list | while read; do
-	case $REPLY in
-	tar) ;;
-	*)
-    if [ "$REPLY" != "tune2fs" ];then 
-        #ui_print "$REPLY"
-        ln -s "$busybox" "$MODDIR/xbin/$REPLY"
-    fi
-	  ;;
-	esac
-done
+    "$busybox" --list | while read; do
+      case $REPLY in
+      tar) ;;
+      *)
+        if [ "$REPLY" != "tune2fs" ];then 
+            #ui_print "$REPLY"
+            ln -s "$busybox" "$MODDIR/xbin/$REPLY"
+        fi
+        ;;
+      esac
+    done
+fi
 
 #设置环境依赖,仅在安装zip刷机包过程中有效
 export PATH="$MODDIR/bin:$MODDIR/xbin:$PATH"
@@ -240,7 +270,13 @@ rw_mod() {
   上面两个有些手机能用，有些不能用，原因不知道
   '''
   bl_name=$block_name
-  newsize "$1"
+  if [[ $shezhi -eq "1" ]];then
+     ui_print "newsize"
+     newsize "$1"
+  else
+     ui_print "actual_size"
+     actual_size "$1"
+  fi
   #$1是获取前面参数，这里指/data/local/super2rw/*.img的路径
   #ui_print "orig_size:$orig_size"
   '''
@@ -259,8 +295,10 @@ rw_mod() {
   temp=$(awk -v  a=$orig_size -v b=0  'BEGIN{print(a>b)?"1":"0"}')
   echo $temp
   if [ $temp -eq "1" ]; then
-    up_size "$1" "$newBS"
-    ui_print "path:$1,$newBS"
+    if [[ $shezhi -eq "1" ]];then
+        up_size "$1" "$newBS"
+        ui_print "path:$1,$newBS"
+    fi
     #tune2fs 获取filesystem信息
     vol=$(tune2fs -l $1 2>/dev/null | grep "feat")
     ui_print "$bl_name:$vol"
@@ -275,26 +313,31 @@ rw_mod() {
       
       #不知道，但这个可以修改img文件的大小为后面扩大system分区做准备
       #例如new_size=$(echo "$orig_size" 100 | awk '{print $1 + ($2 * 1024 * 1024) +440000000}') +440000000是(总super分区大小-已占super分区大小)/super里面有几个分区（system、product、odm、vendor就是4个），然后再适当把数字选小一点填上去
-    
-      new_size=$(echo "$orig_size" "$temp4" | awk '{print $1 + $2}')
-      #原始参数
-      #new_size=$(echo "$orig_size" 100 | awk '{print $1 + ($2 * 1024 * 1024)}')
-      
-      new_block_size=$(echo "$new_size" | awk '{print int($1 / 512)}')
-      ui_print "- $bl_name: new size - $new_size , new_block_size - $new_block_size"
-      up_size "$1" "$new_block_size"
+      if [[ $shezhi -eq "1" ]];then
+          new_size=$(echo "$orig_size" "$temp4" | awk '{print $1 + $2}')
+          #原始参数
+          #new_size=$(echo "$orig_size" 100 | awk '{print $1 + ($2 * 1024 * 1024)}')
+          
+          new_block_size=$(echo "$new_size" | awk '{print int($1 / 512)}')
+          ui_print "- $bl_name: new size - $new_size , new_block_size - $new_block_size"
+          up_size "$1" "$new_block_size"
+      fi   
     fi
+  else
+      ui_print "rw_mod"
+      exit 1
   fi
+  #actual_size会返回img的新大小回去,orig_size
   actual_size "$1"
   ui_print "------------------------------------------------"
 }
 
 make_super() {
-  if [ -z "$out_dir" ]; then
-    supermod=$f_dir"/super_mod.bin"
-  else
-    supermod=$out_dir
-  fi
+  #if [ -z "$out_dir" ]; then
+  supermod=$f_dir"/super_mod.bin"
+  #else
+  #  supermod=$out_dir
+  #fi
   #创建super_mod.bin需要这个文件里的参数
   super_config="./s_config.txt"
   
@@ -321,34 +364,102 @@ make_super() {
 
   #https://blog.csdn.net/yumushui/article/details/53469845
   countimg=0
-  for i in $f_dir/*.img; do
-    tmp=$(stat -c "%s" "$i")
+  for size1 in $f_dir/*.img; do
+    tmp=$(stat -c "%s" "$size1")
     echo $tmp>>$size_source
     #((countimg++))
     countimg=$(echo $countimg | awk '{print $1 + 1}')
   done
   file_size=0
-  for i in $(cat "$size_source"); do
-    file_size=$(echo $file_size "$i" | awk '{print $1 + $2}')
+  for size2 in $(cat "$size_source"); do
+    file_size=$(echo $file_size "$size2" | awk '{print $1 + $2}')
   done
+  
+  #https://blog.51cto.com/baser/1360120 shell脚本创建文件
+  #同时不存在setting.txt才会创建
+  if [[ ! -f $setting ]];then
+    echo -ne "把1改成0为不扩大分区,1为扩大分区。每个分区能扩大多少，取决于剩余空间/需要扩区的数量,扩大后想再缩小就再刷一次，之后又想扩大还是再刷一次，循环扩大缩小\n" >> $setting
+    for i in $f_dir/*.img; do
+      len2=${#i}
+      #ui_print "$len2"
+      len3=$(expr $len2 - 4)
+      len4=$(expr $len3 - $len1)
+      #从字符串第len1个字符开始提取len4个字符,这就是img文件名
+      string3=${i:$len1:$len4}
+      ui_print "fname1:$string3"
+      ui_print "setting1:$string3"
+      echo -ne "$string3 1\n" >> $setting
+    done
+    #suo是阻止无限写配置用
+    #https://blog.51cto.com/baser/1360120 shell脚本创建文件 
+    #touch $suo
+    ui_print "find&edit:$baze_dir/setting.txt,then flash again"
+    exit 0
+  fi
+  
+  r="$(cat $setting | sed -e '/^$/d' | sed -n '$=')"
+  if [[ $r -eq "0" ]];then
+     ui_print "setting.txt error"
+     exit 1
+  fi
+  rr=0
+  iii=0
+  while [[ $iii -le $r ]]; do
+    if [[ $(cat "$setting" | sed -e '/^$/d' | sed -n "${iii}p" | awk '{print $2}') -eq "1" ]];then
+      #ui_print "rr"
+      let rr++
+    fi
+    let iii++
+  done
+  
+  #cat /data/local/super2rw/setting.txt | sed -e '/^$/d' | sed -n "1p" | awk '{print $1}'
+  #cat /data/local/super2rw/setting.txt | sed -e '/^$/d' | sed -n "1p" | awk '{print $2}'
+  #r为读取配置有多少行，rr为要扩区的分区数目
+  ui_print "r:$r"
+  ui_print "rr:$rr"
+  ii=2
   #super分区最大空间
   ui_print "metadata_max_size:$metadata_max_size"
   #有几个super子分区
   ui_print "countimg:$countimg"  
-  #最大空间-已用空间
+  #可用空间=最大空间-已用空间
   ui_print "file_size:$file_size"
   temp2=$(expr $metadata_max_size - $file_size)
+  temp2=`awk -v x=$temp2 -v y=0.9 'BEGIN{printf("%.0f",x*y)}'`
   ui_print "temp2:$temp2"
   #剩余空间/有几个super子分区
-  temp3=$(expr $temp2 / $countimg)
+  temp3=$(expr $temp2 / $rr)
+  temp4=$temp3
   #y不能等于1，否则无法生成super.mod.bin
-  temp4=`awk -v x=$temp3 -v y=0.9 'BEGIN{printf("%.0f",x*y)}'`
+  #temp4=`awk -v x=$temp3 -v y=0.8 'BEGIN{printf("%.0f",x*y)}'`
   ui_print "temp3:$temp3"
   ui_print "temp4:$temp4"
   #https://www.codercto.com/a/21441.html 
   #https://blog.51cto.com/radish/1736900
-
   #ui_print "$len1"
+  
+  ui_print "------------------------------------------------"
+  #直接读取配置文件获取分区名字和是否扩区的设置
+  while [[ $ii -le $r ]]; do
+    name="$(cat "$setting" | sed -e '/^$/d' | sed -n "${ii}p"  | awk '{print $1}')"
+    shezhi="$(cat "$setting" | sed -e '/^$/d' | sed -n "${ii}p" | awk '{print $2}')"
+    ui_print "settingload1:$name"
+    ui_print "settingload2:$shezhi"
+    block_name=$name
+    #https://www.runoob.com/linux/linux-shell-basic-operators.html Shell 基本运算符
+    #只有第一次会创建写入配置文件;echo -ne 不添加最后一行换行，让\n不作为字符串输出 https://www.cnblogs.com/duanxz/p/5026521.html
+    echo -n "--image $block_name=$baze_dir/obraz/$block_name.img ">>$super_config
+    #ui_print "rw_mod2:$i"
+    rw_mod "$baze_dir/obraz/$block_name.img"
+    #echo $orig_size>>$size_source
+    echo -n "--partition $block_name:none:$orig_size:$partition_group ">>$super_config
+    #my_array[$ii]=$name
+    let ii++
+  done
+  #ui_print "第二个元素为: ${my_array[1]}"
+  #ui_print "第三个元素为: ${my_array[2]}"
+  #ui_print "第四个元素为: ${my_array[3]}"
+ '''
   for i in $f_dir/*.img; do
     ui_print "path:$i"
     len2=${#i}
@@ -362,15 +473,21 @@ make_super() {
     #${i//*\/}
     ui_print "fname:$string3"
     block_name=$string3
+    #https://www.runoob.com/linux/linux-shell-basic-operators.html Shell 基本运算符
+    #只有第一次会创建写入配置文件;echo -ne 不添加最后一行换行，让\n不作为字符串输出 https://www.cnblogs.com/duanxz/p/5026521.html
+    if [[ ! -f $setting ]];then
+       ui_print "setting:$block_name"
+       echo -ne "$block_name\n" >> $setting
+    fi
     echo -n "--image $block_name=$i ">>$super_config
-    #ui_print "rw_mod2:$i"
+    ui_print "rw_mod2:$i"
     rw_mod $i
     #echo $orig_size>>$size_source
     echo -n "--partition $block_name:none:$orig_size:$partition_group ">>$super_config
   done
-
+  '''
   #get_size
-
+ 
   #向super_config写最大使用super空间参数
   echo -n "--group $partition_group:$metadata_max_size">>"$super_config"
 
@@ -387,6 +504,7 @@ make_super() {
   Not enough space on device for partition vendor with size 953405440
   空间不够创建不了
   '''
+  
   if ( lpmake $s_config ); then
     #rm -f $super_config
     ui_print "- Successfully created moded Super.img"
@@ -405,42 +523,48 @@ make_super() {
 }
 
 superimg_extract() {
-  if [ -z "$input_dir" ]; then
-    ui_print "- Dumping Super.img partition"
-    ui_print "- Please wait..."
-    #得到super分区，文件名为super_stock.bin
-    if ( dd if="$super_block" of="$dump_dir" ); then
-      ui_print "- Successfully dumped stock Super.img"
-    else
-      abort "- Error: Failed to dump stock Super.img"
-    fi
-  fi
-  ui_print "- Extracting partitions from Super..."
-  #cleanimg "$f_dir/*.img"
-  #分解super_stock.bin，获得system.img,product.img,vendor.img等文件
-  if ( lpunpack "$dump_dir" "$f_dir" ); then
-    if ( ! ls -1 "$f_dir"/*.img>/dev/null ); then
-      abort "- Extracted partitions not be found. Please try again."
-    else
-      ui_print "- Partitions successfully extracted"
-      make_super
-    fi
+  if [[ ! -f $setting ]];then
+      #if [ -z "$input_dir" ]; then
+      ui_print "- Dumping Super.img partition"
+      ui_print "- Please wait..."
+      #得到super分区，文件名为super_stock.bin
+      if ( dd if="$super_block" of="$dump_dir" ); then
+        ui_print "- Successfully dumped stock Super.img"
+      else
+        abort "- Error: Failed to dump stock Super.img"
+      fi
+      #fi
+      ui_print "- Extracting partitions from Super..."
+      #cleanimg "$f_dir/*.img"
+      #分解super_stock.bin，获得system.img,product.img,vendor.img等文件
+      if ( lpunpack "$dump_dir" "$f_dir" ); then
+        if ( ! ls -1 "$f_dir"/*.img>/dev/null ); then
+          abort "- Extracted partitions not be found. Please try again."
+        else
+          ui_print "- Partitions successfully extracted1"
+          make_super
+        fi
+      else
+        abort "- Please make sure the Super.img exists and try again."
+      fi
   else
-    abort "- Please make sure the Super.img exists and try again."
+      ui_print "- Partitions successfully extracted2"
+      make_super
   fi
+  
 }
 
 run_project() {
   f_dir=$baze_dir"/obraz" && mkdir -p "$f_dir"
-  
   #寻找super分区的位置
   super_block=$(ls -Alg /dev/block/by-name | grep "super" | awk '{print $NF}')
 
-  if [ -z "$input_dir" ]; then
-    dump_dir=$f_dir"/super_stock.bin"
-  else
-    dump_dir=$input_dir
-  fi
+  #if [ -z "$input_dir" ]; then
+  dump_dir=$f_dir"/super_stock.bin"
+  #else
+  #  dump_dir=$input_dir
+  #fi
+
   if [ ! -z "$super_block" ]; then
     ui_print "- Super partition found: $super_block"
     lploger="./lpdump.txt"
