@@ -383,7 +383,9 @@ make_super() {
   #https://blog.51cto.com/baser/1360120 shell脚本创建文件
   #同时不存在setting.txt才会创建
   if [[ ! -f $setting ]];then
-    echo -ne "把1改成0为不扩大分区,1为扩大分区。每个分区能扩大多少，取决于剩余空间/需要扩区的数量,扩大后想再缩小就再刷一次，之后又想扩大还是再刷一次，循环扩大缩小\n" >> $setting
+    echo -ne "把1改成0为不扩大分区,1为扩大分区。每个分区能扩大多少，取决于剩余空间/需要扩区的数量,扩大后想再缩小就再刷一次，之后又想扩大还是再刷一次，循环扩大缩小;get_super_block和set_lpunpack是在setting.txt存在时依然强制获得分区并拆出img文件用的，默认不开\n" >> $setting
+    echo -ne "get_super_block 0\n" >> $setting
+    echo -ne "set_lpunpack 0\n" >> $setting
     for i in $f_dir/*.img; do
       len2=${#i}
       #ui_print "$len2"
@@ -423,7 +425,7 @@ make_super() {
   #r为读取配置有多少行，rr为要扩区的分区数目
   ui_print "r:$r"
   ui_print "rr:$rr"
-  ii=2
+  ii=4
   #super分区最大空间
   ui_print "metadata_max_size:$metadata_max_size"
   #有几个super子分区
@@ -528,40 +530,62 @@ make_super() {
   fi
 }
 
-superimg_extract() {
-  if [[ ! -f $setting ]];then
-      #if [ -z "$input_dir" ]; then
-      ui_print "- Dumping Super.img partition"
-      ui_print "- Please wait..."
-      #得到super分区，文件名为super_stock.bin
-      if ( dd if="$super_block" of="$dump_dir" ); then
-        ui_print "- Successfully dumped stock Super.img"
-      else
-        abort "- Error: Failed to dump stock Super.img"
-      fi
-      #fi
-      ui_print "- Extracting partitions from Super..."
-      #cleanimg "$f_dir/*.img"
-      #分解super_stock.bin，获得system.img,product.img,vendor.img等文件
-      if ( lpunpack "$dump_dir" "$f_dir" ); then
-        if ( ! ls -1 "$f_dir"/*.img>/dev/null ); then
+get_super_block2()
+{
+  #if [ -z "$input_dir" ]; then
+  ui_print "- Dumping Super.img partition"
+  ui_print "- Please wait..."
+  #得到super分区，文件名为super_stock.bin
+  if ( dd if="$super_block" of="$dump_dir" ); then
+    ui_print "- Successfully dumped stock Super.img"
+  else
+    abort "- Error: Failed to dump stock Super.img"
+  fi
+  #fi
+}
+
+set_lpunpack2()
+{
+  ui_print "- Extracting partitions from Super..."
+  #分解super_stock.bin，获得system.img,product.img,vendor.img等文件
+  if ( lpunpack "$dump_dir" "$f_dir" ); then
+      if ( ! ls -1 "$f_dir"/*.img>/dev/null ); then
           abort "- Extracted partitions not be found. Please try again."
-        else
+      else
           ui_print "- Partitions successfully extracted1"
           make_super
-        fi
-      else
-        abort "- Please make sure the Super.img exists and try again."
       fi
   else
-      ui_print "- Partitions successfully extracted2"
-      make_super
+      abort "- Please make sure the Super.img exists and try again."
   fi
-  
+}
+
+superimg_extract() {
+  if [[ ! -f $setting ]];then
+      get_super_block2
+      set_lpunpack2
+  else
+      #会覆盖源文件
+      if [[ $get_super_block -eq "1" ]];then
+          #rm -rf "$f_dir/super_stock.bin"
+          get_super_block2
+      fi
+      if [[ $set_lpunpack -eq "1" ]];then
+          #cleanimg "$f_dir/*.img"
+          set_lpunpack2
+      fi
+      if [[ $set_lpunpack -eq "0" ]];then
+          make_super
+      fi
+  fi
 }
 
 run_project() {
-  f_dir=$baze_dir"/obraz" && mkdir -p "$f_dir"
+  f_dir="$baze_dir/obraz" && mkdir -p "$f_dir"
+  get_super_block="$(cat "$setting" | sed -e '/^$/d' | sed -n "2p"  | awk '{print $2}')"
+  set_lpunpack="$(cat "$setting" | sed -e '/^$/d' | sed -n "3p"  | awk '{print $2}')"
+  #ui_print "get_super_block:$get_super_block"
+  #ui_print "set_lpunpack:$set_lpunpack"
   #寻找super分区的位置
   super_block=$(ls -Alg /dev/block/by-name | grep "super" | awk '{print $NF}')
 
