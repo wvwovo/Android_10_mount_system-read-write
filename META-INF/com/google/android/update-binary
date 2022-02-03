@@ -1,7 +1,7 @@
 #!/sbin/sh
 #magisks是用/sbin/sh,所以这里也用这个
 #/system/bin/sh
-#version 1.0.2
+#version 1.0.3
 #上面两个可能导致刷入zip错误255
 #https://www.jianshu.com/p/b03ad01acd69 CRLF、CR、LF详解;要选择UNIX(LF),否则刷入时也会报255错误;E:Can't execute '/tmp/updater': No such file or directory,Updater过程结束，错误：255
 #https://forum.xda-developers.com/t/dev-template-complete-shell-script-flashable-zip-replacement-signing-script.2934449/page-5
@@ -48,7 +48,7 @@ ui_print "==============================================="
 ui_print "|  Run the script to convert the Super to RW  |"
 ui_print "==============================================="
 
-ui_print "version 1.0.2"
+ui_print "version 1.0.3"
 #判断是否有root
 if [ `whoami` != "root" ]; then ui_print "No root detected. Please try again as root. Abort"; exit 1; else ui_print "find root"; fi
 #判断是否在twrp
@@ -274,7 +274,7 @@ rw_mod() {
      ui_print "newsize"
      newsize "$1"
   else
-     ui_print "actual_size"
+     ui_print "actual_size1"
      actual_size "$1"
   fi
   #$1是获取前面参数，这里指/data/local/super2rw/*.img的路径
@@ -308,7 +308,11 @@ rw_mod() {
       else
           ui_print "- $bl_name: NO detected fs feature 'shared_blocks'"
       fi
+      #if [[ $shezhi -eq "1" ]];then
+      #这个也可以在不执行扩区时压缩分区
       resize2fs -f -M "$1"
+      #fi
+      ui_print "actual_size2"
       actual_size "$1"
       
       #不知道，但这个可以修改img文件的大小为后面扩大system分区做准备
@@ -328,6 +332,7 @@ rw_mod() {
       exit 1
   fi
   #actual_size会返回img的新大小回去,orig_size
+  ui_print "actual_size3"
   actual_size "$1"
   ui_print "------------------------------------------------"
 }
@@ -393,7 +398,8 @@ make_super() {
     #suo是阻止无限写配置用
     #https://blog.51cto.com/baser/1360120 shell脚本创建文件 
     #touch $suo
-    ui_print "find&edit:$baze_dir/setting.txt,then flash again"
+    ui_print "Backing up the Super Partition,find&edit:$baze_dir/setting.txt,then flash again"
+    ui_print "请先备份super分区,然后寻找并编辑:$baze_dir/setting.txt,改好配置后再刷一次模块"
     exit 0
   fi
   
