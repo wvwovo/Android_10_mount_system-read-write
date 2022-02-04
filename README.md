@@ -47,7 +47,7 @@ touch /sdcard/my_tune2fs_output.txt
 for i in `seq 0 5`; do tune2fs -l /dev/block/dm-$i>>/sdcard/my_tune2fs_output.txt; done
 ```
 ## 参考&使用
-- https://gitee.com/sharpeter/DNA 拆twrp，找到\ramdisk\tools\makerw.zip
+- https://gitee.com/sharpeter/DNA 拆twrp，找到\ramdisk\tools\makerw.zip;DNA工具合成的img并不能直接用于该模块，因为判断大小出错，无法合成bin
 - https://androidfilehost.com/?fid=7161016148664805646 twrp-3.5.2_10-3-lime-brigudav , 红米 note9 4g 的twrp(该twrp支持安卓10的miui12和安卓11的miui12.5)
 - https://github.com/YAWAsau/backup_script 一些可执行文件和代码
 - https://forum.xda-developers.com/t/script-android-10-universal-mount-system-r-w-read-write.4247311/ systemrw_1.32_flashable.zip 一些可执行文件和代码
