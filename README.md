@@ -25,6 +25,7 @@ vendor 1
 - README.md
 ```
 - 刷一遍扩大，两遍会缩小，三遍会扩大，四遍会缩小。。。
+- 中途不要重启或断电，刷完的结果默认会显示两到三个更新xxx分区失败，重启twrp就可以重新挂载上分区
 # 先用twrp备份super分区以备未来不时之需，如果twrp备份功能无效就要找其它方法备份，不过该脚本的super_stock.bin也算一个备份(这有可能后期被自己弄覆盖了)
 - 备份字库相关 https://www.coolapk.com/feed/21305538?shareKey=NWRlNDg1NzYwYjQyNjEzYjJlOTA~
 - 默认会保留所有过程文件，再一次刷入模块则会覆盖掉旧的
