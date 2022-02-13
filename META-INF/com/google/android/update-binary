@@ -1,7 +1,7 @@
 #!/sbin/sh
 #magisks是用/sbin/sh,所以这里也用这个
 #/system/bin/sh
-#version 1.0.3
+#version 1.0.4
 #上面两个可能导致刷入zip错误255
 #https://www.jianshu.com/p/b03ad01acd69 CRLF、CR、LF详解;要选择UNIX(LF),否则刷入时也会报255错误;E:Can't execute '/tmp/updater': No such file or directory,Updater过程结束，错误：255
 #https://forum.xda-developers.com/t/dev-template-complete-shell-script-flashable-zip-replacement-signing-script.2934449/page-5
@@ -48,7 +48,7 @@ ui_print "==============================================="
 ui_print "|  Run the script to convert the Super to RW  |"
 ui_print "==============================================="
 
-ui_print "version 1.0.3"
+ui_print "version 1.0.4"
 #判断是否有root
 if [ `whoami` != "root" ]; then ui_print "No root detected. Please try again as root. Abort"; exit 1; else ui_print "find root"; fi
 #判断是否在twrp
@@ -293,8 +293,19 @@ rw_mod() {
   https://www.cnblogs.com/betterquan/p/11743627.html
   '''
   temp=$(awk -v  a=$orig_size -v b=0  'BEGIN{print(a>b)?"1":"0"}')
-  echo $temp
-  if [ $temp -eq "1" ]; then
+  #尝试支持vab分区
+  #noexit=0
+  #if [[ $test = "virtual_ab_device" ]];then
+  #     ui_print "vab"
+  #    noexit=1
+  #elif [[ $test = "none" ]];then
+  #     ui_print "only_a"
+  #else
+  #    ui_print "$test Unknown partitions do nothing"
+  #    exit 1
+  #fi
+  ui_print "temp:$temp"
+  if [[ $temp -eq "1" ]]; then
     if [[ $shezhi -eq "1" ]];then
         up_size "$1" "$newBS"
         ui_print "path:$1,$newBS"
@@ -302,7 +313,7 @@ rw_mod() {
     #tune2fs 获取filesystem信息
     vol=$(tune2fs -l $1 2>/dev/null | grep "feat")
     ui_print "$bl_name:$vol"
-    if [ ! -z "${vol:20}" ]; then
+    if [[ ! -z "${vol:20}" ]]; then
       if [[ "${vol:20}" == *"shared_blocks"* ]]; then
           unshare "$1"
       else
@@ -328,8 +339,11 @@ rw_mod() {
       fi   
     fi
   else
-      ui_print "rw_mod"
-      exit 1
+      ui_print "skip"
+      #if [[ $noexit -eq "0" ]]; then
+      #  ui_print "rw_mod"
+      #  exit 1
+      #fi
   fi
   #actual_size会返回img的新大小回去,orig_size
   ui_print "actual_size3"
@@ -439,13 +453,20 @@ make_super() {
   temp3=$(expr $temp2 / $rr)
   temp4=$temp3
   #y不能等于1，否则无法生成super.mod.bin
-  #temp4=`awk -v x=$temp3 -v y=0.8 'BEGIN{printf("%.0f",x*y)}'`
+  #temp4=`awk -v x=$temp3 -v y=0.8 'BEGIN{printf("%d",x*y)}'`
   ui_print "temp3:$temp3"
   ui_print "temp4:$temp4"
   #https://www.codercto.com/a/21441.html 
   #https://blog.51cto.com/radish/1736900
   #ui_print "$len1"
-  
+  check=0
+  #检查setting.txt里写的分区数量是否等于/data/local/super2rw/obraz/里的img文件数，不等于就不刷入
+  for i in $f_dir/*.img; do
+      let check++
+  done
+  #+4补平起始数
+  #check=`awk -v x=$check -v y=4 'BEGIN{printf("%.0f",x+y)}'`
+  ui_print "check:$check"
   ui_print "------------------------------------------------"
   #直接读取配置文件获取分区名字和是否扩区的设置
   while [[ $ii -le $r ]]; do
@@ -464,6 +485,17 @@ make_super() {
     #my_array[$ii]=$name
     let ii++
   done
+  ii=`awk -v x=$ii -v y=4 'BEGIN{printf("%.0f",x-y)}'`
+  ui_print "check:$check"
+  ui_print "ii:$ii"
+  if [[ $ii -eq $check ]];then
+    ui_print "分区数量检查通过"
+    ui_print "The number of partitions passes the check"
+  else
+    ui_print "分区数量检查不通过，配置文件可能有误"
+    ui_print "If the partition quantity check fails, the configuration file may be incorrect"
+    exit 1
+  fi
   #ui_print "第二个元素为: ${my_array[1]}"
   #ui_print "第三个元素为: ${my_array[2]}"
   #ui_print "第四个元素为: ${my_array[3]}"
@@ -595,11 +627,14 @@ run_project() {
   #  dump_dir=$input_dir
   #fi
 
-  if [ ! -z "$super_block" ]; then
+  if [[ ! -z "$super_block" ]]; then
     ui_print "- Super partition found: $super_block"
     lploger="./lpdump.txt"
     #得到super分区相关信息,为后面做准备
     lpdump > $lploger
+    #获取分区状态不可靠
+    test=$(grep -F -m 1 "Header flags:" $lploger |awk '{print $NF}')
+    ui_print "Header flags:$test"
     superimg_extract
   fi
 }
