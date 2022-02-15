@@ -1,6 +1,7 @@
 # Android_10_mount_system(read/write)
 - https://github.com/wvwovo/Android_10_mount_system-read-write
 # 只在ONLY A、VAB分区动态分区的手机做过测试,像AB分区等不知道是什么情况
+# 解锁system会导致系统无法自动升级,只能使用全量卡刷/线刷包手动升级
 - 解锁安卓10的system分区并自动扩大分区(可以扩大多少取决于整个super分区还剩多少空间，有点super最大大小是8GB，有的是4.5GB，应该还有别的大小)
 - 可以指定选择扩大某个分区，要刷入模块两次，第一次生成基本的文件，然后去找'/data/local/super2rw/setting.txt'进行修改 
 - setting.txt的内容默认可能是这样子
