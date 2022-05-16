@@ -63,12 +63,22 @@ mount /data 2>/dev/null
 #删除/data/local/super2rw文件夹
 #rm -rf "$MODDIR"
 
-#存在suo.txt文件不清理bin,xbin,obraz;
+#清理img文件
+cleanimg() {
+  for file in $1; do
+    rm -f "$file"
+  done
+}
+
+#存在setting.txt文件不清理bin,xbin,obraz;
 if [[ ! -f $setting ]];then
     rm -rf $baze_dir"/bin"
     rm -rf $baze_dir"/xbin"
-    rm -rf $baze_dir"/obraz"
+    cleanimg $baze_dir"/obraz/*.img"
+    rm -rf $baze_dir"/super_mod.bin"
+    #rm -rf $baze_dir"/obraz"
 fi
+
 rm -rf $baze_dir"/file_size.txt"
 rm -rf $baze_dir"/lpdump.txt"
 rm -rf $baze_dir"/my_tune2fs_output.txt"
@@ -181,13 +191,6 @@ actual_size() {
   #ui_print "actual_size:$1"
   orig_size=$(stat -c "%s" "$1")
   ui_print "- $bl_name: actual size - $orig_size"
-}
-
-#清理img文件
-cleanimg() {
-  for file in $1; do
-    rm -f "$file"
-  done
 }
 
 newsize() {
@@ -570,11 +573,15 @@ get_super_block2()
   #if [ -z "$input_dir" ]; then
   ui_print "- Dumping Super.img partition"
   ui_print "- Please wait..."
-  #得到super分区，文件名为super_stock.bin
-  if ( dd if="$super_block" of="$dump_dir" ); then
-    ui_print "- Successfully dumped stock Super.img"
+  #得到super分区，文件名为super_stock.bin,如果文件已存在则跳过
+  if [[ ! -f $dump_dir ]];then
+      if ( dd if="$super_block" of="$dump_dir" ); then
+        ui_print "- Successfully dumped stock Super.img"
+      else
+        abort "- Error: Failed to dump stock Super.img"
+      fi
   else
-    abort "- Error: Failed to dump stock Super.img"
+      ui_print "- find stock Super.img,skip"
   fi
   #fi
 }
@@ -612,6 +619,10 @@ superimg_extract() {
       get_super_block2
       set_lpunpack2
   else
+      if [[ $set_restore_backup -eq "1" ]];then
+          restore_backup
+          exit
+      fi
       #会覆盖源文件
       if [[ $get_super_block -eq "1" ]];then
           #rm -rf "$f_dir/super_stock.bin"
@@ -623,9 +634,6 @@ superimg_extract() {
       fi
       if [[ $set_lpunpack -eq "0" ]];then
           make_super
-      fi
-      if [[ $set_restore_backup -eq "1" ]];then
-          restore_backup
       fi
   fi
 }
