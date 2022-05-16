@@ -433,7 +433,8 @@ make_super() {
   #r为读取配置有多少行，rr为要扩区的分区数目
   ui_print "r:$r"
   ui_print "rr:$rr"
-  ii=4
+  #ii起始读取分区位置
+  ii=5
   #super分区最大空间
   ui_print "metadata_max_size:$metadata_max_size"
   #有几个super子分区
@@ -463,9 +464,10 @@ make_super() {
   ui_print "check:$check"
   ui_print "------------------------------------------------"
   #直接读取配置文件获取分区名字和是否扩区的设置
-  while [[ $ii -le $r ]]; do
-    name="$(cat "$setting" | sed -e '/^$/d' | sed -n "${ii}p"  | awk '{print $1}')"
-    shezhi="$(cat "$setting" | sed -e '/^$/d' | sed -n "${ii}p" | awk '{print $2}')"
+  ii1=$ii
+  while [[ $ii1 -le $r ]]; do
+    name="$(cat "$setting" | sed -e '/^$/d' | sed -n "${ii1}p"  | awk '{print $1}')"
+    shezhi="$(cat "$setting" | sed -e '/^$/d' | sed -n "${ii1}p" | awk '{print $2}')"
     ui_print "settingload1:$name"
     ui_print "settingload2:$shezhi"
     block_name=$name
@@ -477,12 +479,12 @@ make_super() {
     #echo $orig_size>>$size_source
     echo -n "--partition $block_name:none:$orig_size:$partition_group ">>$super_config
     #my_array[$ii]=$name
-    let ii++
+    let ii1++
   done
-  ii=`awk -v x=$ii -v y=4 'BEGIN{printf("%.0f",x-y)}'`
+  ii2=`awk -v x=$ii1 -v y=$ii 'BEGIN{printf("%.0f",x-y)}'`
   ui_print "check:$check"
-  ui_print "ii:$ii"
-  if [[ $ii -eq $check ]];then
+  ui_print "ii2:$ii2"
+  if [[ $ii2 -eq $check ]];then
     ui_print "分区数量检查通过"
     ui_print "The number of partitions passes the check"
   else
