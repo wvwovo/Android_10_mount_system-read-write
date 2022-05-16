@@ -1,7 +1,7 @@
 #!/sbin/sh
 #magisks是用/sbin/sh,所以这里也用这个
 #/system/bin/sh
-#version 1.0.4 test
+#version 1.0.5 test
 #上面两个可能导致刷入zip错误255
 #https://www.jianshu.com/p/b03ad01acd69 CRLF、CR、LF详解;要选择UNIX(LF),否则刷入时也会报255错误;E:Can't execute '/tmp/updater': No such file or directory,Updater过程结束，错误：255
 #https://forum.xda-developers.com/t/dev-template-complete-shell-script-flashable-zip-replacement-signing-script.2934449/page-5
@@ -49,7 +49,7 @@ ui_print "|  Run the script to convert the Super to RW  |"
 ui_print "==============================================="
 
 ui_print "用于特殊用途，没有解锁扩区功能，只能刷入"
-ui_print "version 1.0.4 test"
+ui_print "version 1.0.5 test"
 #判断是否有root
 if [ `whoami` != "root" ]; then ui_print "No root detected. Please try again as root. Abort"; exit 1; else ui_print "find root"; fi
 #判断是否在twrp
@@ -390,9 +390,10 @@ make_super() {
   #https://blog.51cto.com/baser/1360120 shell脚本创建文件
   #同时不存在setting.txt才会创建
   if [[ ! -f $setting ]];then
-    echo -ne "把1改成0为不扩大分区,1为扩大分区。每个分区能扩大多少，取决于剩余空间/需要扩区的数量,扩大后想再缩小就再刷一次，之后又想扩大还是再刷一次，循环扩大缩小;get_super_block和set_lpunpack是在setting.txt存在时依然强制获得分区并拆出img文件用的，默认不开\n" >> $setting
+    echo -ne "把1改成0为不扩大分区,1为扩大分区。每个分区能扩大多少，取决于剩余空间/需要扩区的数量,扩大后想再缩小就再刷一次，之后又想扩大还是再刷一次，循环扩大缩小;get_super_block和set_lpunpack是在setting.txt存在时依然强制获得分区并拆出img文件用的,set_restore_backup为还原原来super.img,默认不开\n" >> $setting
     echo -ne "get_super_block 0\n" >> $setting
     echo -ne "set_lpunpack 0\n" >> $setting
+    echo -ne "set_restore_backup 0\n" >> $setting
     for i in $f_dir/*.img; do
       len2=${#i}
       #ui_print "$len2"
@@ -585,6 +586,18 @@ set_lpunpack2()
   fi
 }
 
+restore_backup()
+{
+  #把原来提取出来的super_stock.bin刷回super分区里
+  superstock=$f_dir"/super_stock.bin"
+  if ( ! simg2img $superstock $super_block ); then
+    abort "restore_backup - Error flash"
+  else
+    ui_print "restore_backup - Flashed successfully."
+    success
+  fi
+}
+
 superimg_extract() {
   if [[ ! -f $setting ]];then
       get_super_block2
@@ -602,6 +615,9 @@ superimg_extract() {
       if [[ $set_lpunpack -eq "0" ]];then
           make_super
       fi
+      if [[ $set_restore_backup -eq "1" ]];then
+          restore_backup
+      fi
   fi
 }
 
@@ -609,6 +625,7 @@ run_project() {
   f_dir="$baze_dir/obraz" && mkdir -p "$f_dir"
   get_super_block="$(cat "$setting" | sed -e '/^$/d' | sed -n "2p"  | awk '{print $2}')"
   set_lpunpack="$(cat "$setting" | sed -e '/^$/d' | sed -n "3p"  | awk '{print $2}')"
+  set_restore_backup="$(cat "$setting" | sed -e '/^$/d' | sed -n "4p"  | awk '{print $2}')"
   #ui_print "get_super_block:$get_super_block"
   #ui_print "set_lpunpack:$set_lpunpack"
   #寻找super分区的位置
