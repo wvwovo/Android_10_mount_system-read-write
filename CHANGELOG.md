@@ -1,6 +1,8 @@
 # 更新日志
 ## 1.0.5
-- 增加还原功能,现在不会主动删提取的super_stock.bin文件
+- 增加还原功能,现在不会主动删提取的super_stock.bin文件(beta)
+- 如果出现还原失败，可能需要手动复制super_stock.bin，然后自己手动用linux dd命令或adb fastboot刷回去
+- 目前无法显示过程进度，所以怎么卡死的都不知道
 
 ## 1.0.4
 - 尝试支持vab分区

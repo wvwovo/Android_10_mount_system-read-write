@@ -26,6 +26,7 @@ shell命令--mkdir
 baze_dir=/data/local/super2rw
 MODDIR=$baze_dir
 setting=$baze_dir"/setting.txt"
+ddlog=$baze_dir"/ddlog.txt"
 #suo=$baze_dir"/suo.txt"
 
 #OUTFD 和安装zip显示输出日志有关系
@@ -125,8 +126,10 @@ if [[ ! -f $setting ]];then
       tar) ;;
       *)
         if [ "$REPLY" != "tune2fs" ];then 
-            #ui_print "$REPLY"
-            ln -s "$busybox" "$MODDIR/xbin/$REPLY"
+            if [ "$REPLY" != "dd" ];then 
+              #ui_print "$REPLY"
+              ln -s "$busybox" "$MODDIR/xbin/$REPLY"
+            fi
         fi
         ;;
       esac
@@ -356,7 +359,7 @@ rw_mod() {
 
 make_super() {
   #if [ -z "$out_dir" ]; then
-  supermod=$f_dir"/super_mod.bin"
+  supermod="$f_dir/super_mod.bin"
   #else
   #  supermod=$out_dir
   #fi
@@ -604,13 +607,21 @@ set_lpunpack2()
 
 restore_backup()
 {
-  #把原来提取出来的super_stock.bin刷回super分区里
-  superstock=$f_dir"/super_stock.bin"
-  if ( ! simg2img $superstock $super_block ); then
-    abort "restore_backup - Error flash"
+  #把原来提取出来的super_stock.bin刷回super分区里 示例:dd if="/data/local/super2rw/obraz/super_stock.bin" of="/dev/block/xxxx"
+  superstock="$f_dir/super_stock.bin"
+  ui_print "superstock:$superstock"
+  ui_print "super_block:$super_block"
+  ui_print "刷入速度可能很慢，请耐心等待。。。"
+  ui_print "The brushing speed may be very slow, please wait patiently..."
+  temp=$(echo -n $(dd --version))
+  ui_print "dd:"
+  ui_print $temp
+  $temp > $ddlog
+  if ( dd if="$superstock" of="$super_block" ); then
+     ui_print "restore_backup - Flashed successfully."
+     success  
   else
-    ui_print "restore_backup - Flashed successfully."
-    success
+     abort "restore_backup - Error flash"
   fi
 }
 
