@@ -84,6 +84,7 @@ rm -rf $baze_dir"/file_size.txt"
 rm -rf $baze_dir"/lpdump.txt"
 rm -rf $baze_dir"/my_tune2fs_output.txt"
 rm -rf $baze_dir"/s_config.txt"
+rm -rf $baze_dir"/ddlog.txt"
 
 #创建/data/local/super2rw文件夹
 mkdir -p $baze_dir
@@ -118,7 +119,7 @@ if [[ ! -f $setting ]];then
     '''
     #busybox软链接代码来自https://github.com/YAWAsau/backup_script
     #ui_print "REPLY:$REPLY"
-    #排除创建tune2fs软链接
+    #排除创建tune2fs和dd的软链接
     #https://www.runoob.com/linux/linux-shell-basic-operators.html
 
     "$busybox" --list | while read; do
@@ -605,10 +606,9 @@ restore_backup()
   ui_print "super_block:$super_block"
   ui_print "刷入速度可能很慢，请耐心等待。。。"
   ui_print "The brushing speed may be very slow, please wait patiently..."
-  temp=$(echo -n $(dd --version))
   ui_print "dd:"
-  ui_print $temp
-  $temp > $ddlog
+  ui_print $(dd --version)
+  echo -n $(dd --version) > $ddlog
   if ( dd if="$superstock" of="$super_block" ); then
      ui_print "restore_backup - Flashed successfully."
      success  
