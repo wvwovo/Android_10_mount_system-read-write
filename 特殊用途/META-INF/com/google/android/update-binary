@@ -427,7 +427,8 @@ make_super() {
      exit 1
   fi
   rr=0
-  iii=0
+  start=7
+  iii=$start
   while [[ $iii -le $r ]]; do
     if [[ $(cat "$setting" | sed -e '/^$/d' | sed -n "${iii}p" | awk '{print $2}') -eq "1" ]];then
       #ui_print "rr"
@@ -442,7 +443,7 @@ make_super() {
   ui_print "r:$r"
   ui_print "rr:$rr"
   #ii起始读取分区位置
-  ii=7
+  ii=$start
   #super分区最大空间
   ui_print "metadata_max_size:$metadata_max_size"
   #有几个super子分区
