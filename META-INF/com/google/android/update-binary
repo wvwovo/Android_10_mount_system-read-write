@@ -1,7 +1,7 @@
 #!/sbin/sh
 #magisks是用/sbin/sh,所以这里也用这个
 #/system/bin/sh
-#version 1.0.5
+#v1.0.6
 #上面两个可能导致刷入zip错误255
 #https://www.jianshu.com/p/b03ad01acd69 CRLF、CR、LF详解;要选择UNIX(LF),否则刷入时也会报255错误;E:Can't execute '/tmp/updater': No such file or directory,Updater过程结束，错误：255
 #https://forum.xda-developers.com/t/dev-template-complete-shell-script-flashable-zip-replacement-signing-script.2934449/page-5
@@ -49,7 +49,8 @@ ui_print "==============================================="
 ui_print "|  Run the script to convert the Super to RW  |"
 ui_print "==============================================="
 
-ui_print "version 1.0.5"
+banben="v1.0.6"
+ui_print "$banben"
 #判断是否有root
 if [ `whoami` != "root" ]; then ui_print "No root detected. Please try again as root. Abort"; exit 1; else ui_print "find root"; fi
 #判断是否在twrp
@@ -313,38 +314,42 @@ rw_mod() {
   #fi
   ui_print "temp:$temp"
   if [[ $temp -eq "1" ]]; then
-    if [[ $shezhi -eq "1" ]];then
-        up_size "$1" "$newBS"
-        ui_print "path:$1,$newBS"
-    fi
-    #tune2fs 获取filesystem信息
-    vol=$(tune2fs -l $1 2>/dev/null | grep "feat")
-    ui_print "$bl_name:$vol"
-    if [[ ! -z "${vol:20}" ]]; then
-      if [[ "${vol:20}" == *"shared_blocks"* ]]; then
-          unshare "$1"
-      else
-          ui_print "- $bl_name: NO detected fs feature 'shared_blocks'"
-      fi
-      #if [[ $shezhi -eq "1" ]];then
-      #这个也可以在不执行扩区时压缩分区
-      resize2fs -f -M "$1"
-      #fi
-      ui_print "actual_size2"
-      actual_size "$1"
-      
-      #不知道，但这个可以修改img文件的大小为后面扩大system分区做准备
-      #例如new_size=$(echo "$orig_size" 100 | awk '{print $1 + ($2 * 1024 * 1024) +440000000}') +440000000是(总super分区大小-已占super分区大小)/super里面有几个分区（system、product、odm、vendor就是4个），然后再适当把数字选小一点填上去
       if [[ $shezhi -eq "1" ]];then
-          new_size=$(echo "$orig_size" "$temp4" | awk '{print $1 + $2}')
-          #原始参数
-          #new_size=$(echo "$orig_size" 100 | awk '{print $1 + ($2 * 1024 * 1024)}')
-          
-          new_block_size=$(echo "$new_size" | awk '{print int($1 / 512)}')
-          ui_print "- $bl_name: new size - $new_size , new_block_size - $new_block_size"
-          up_size "$1" "$new_block_size"
-      fi   
-    fi
+          up_size "$1" "$newBS"
+          ui_print "path:$1,$newBS"
+      fi
+      #tune2fs 获取filesystem信息
+      vol=$(tune2fs -l $1 2>/dev/null | grep "feat")
+      ui_print "$bl_name:$vol"
+      if [[ ! -z "${vol:20}" ]]; then
+        if [[ "${vol:20}" == *"shared_blocks"* ]]; then
+            if [[ $set_unlock -eq "1" ]];then
+                unshare "$1"
+            else
+                ui_print "no unlock"
+            fi        
+        else
+            ui_print "- $bl_name: NO detected fs feature 'shared_blocks'"
+        fi
+        #if [[ $shezhi -eq "1" ]];then
+        #这个也可以在不执行扩区时压缩分区
+        resize2fs -f -M "$1"
+        #fi
+        ui_print "actual_size2"
+        actual_size "$1"
+        
+        #不知道，但这个可以修改img文件的大小为后面扩大system分区做准备
+        #例如new_size=$(echo "$orig_size" 100 | awk '{print $1 + ($2 * 1024 * 1024) +440000000}') +440000000是(总super分区大小-已占super分区大小)/super里面有几个分区（system、product、odm、vendor就是4个），然后再适当把数字选小一点填上去
+        if [[ $shezhi -eq "1" ]];then
+            new_size=$(echo "$orig_size" "$temp4" | awk '{print $1 + $2}')
+            #原始参数
+            #new_size=$(echo "$orig_size" 100 | awk '{print $1 + ($2 * 1024 * 1024)}')
+            
+            new_block_size=$(echo "$new_size" | awk '{print int($1 / 512)}')
+            ui_print "- $bl_name: new size - $new_size , new_block_size - $new_block_size"
+            up_size "$1" "$new_block_size"
+        fi   
+      fi
   else
       ui_print "skip"
       #if [[ $noexit -eq "0" ]]; then
@@ -352,6 +357,8 @@ rw_mod() {
       #  exit 1
       #fi
   fi
+
+
   #actual_size会返回img的新大小回去,orig_size
   ui_print "actual_size3"
   actual_size "$1"
@@ -402,11 +409,13 @@ make_super() {
   done
   
   #https://blog.51cto.com/baser/1360120 shell脚本创建文件
-  #同时不存在setting.txt才会创建
+  #同时不存在setting.txt才会创建，set_lpunpack需要为1以保证不解锁super分区功能正常
   if [[ ! -f $setting ]];then
-    echo -ne "把1改成0为不扩大分区,1为扩大分区。每个分区能扩大多少，取决于剩余空间/需要扩区的数量,扩大后想再缩小就再刷一次，之后又想扩大还是再刷一次，循环扩大缩小;get_super_block和set_lpunpack是在setting.txt存在时依然强制获得分区并拆出img文件用的,set_restore_backup为还原原来super.img,默认不开\n" >> $setting
+    echo -ne "v1.0.6\n" >> $setting
+    echo -ne "把1改成0为不扩大分区,1为扩大分区。每个分区能扩大多少，取决于剩余空间/需要扩区的数量,扩大后想再缩小就再刷一次，之后又想扩大还是再刷一次，循环扩大缩小;get_super_block和set_lpunpack是在setting.txt存在时依然强制获得分区并拆出img文件用的,set_restore_backup为还原原来super.img，默认不开。set_unlock为是否解除只读状态\n" >> $setting
     echo -ne "get_super_block 0\n" >> $setting
-    echo -ne "set_lpunpack 0\n" >> $setting
+    echo -ne "set_lpunpack 1\n" >> $setting
+    echo -ne "set_unlock 1\n" >> $setting
     echo -ne "set_restore_backup 0\n" >> $setting
     for i in $f_dir/*.img; do
       len2=${#i}
@@ -448,7 +457,7 @@ make_super() {
   ui_print "r:$r"
   ui_print "rr:$rr"
   #ii起始读取分区位置
-  ii=5
+  ii=7
   #super分区最大空间
   ui_print "metadata_max_size:$metadata_max_size"
   #有几个super子分区
@@ -630,6 +639,14 @@ superimg_extract() {
       get_super_block2
       set_lpunpack2
   else
+      version="$(cat "$setting" | sed -e '/^$/d' | sed -n "1p"  | awk '{print $1}')"
+      ui_print "version:$version"
+      if [[ $version == "$banben" ]];then
+          ui_print "版本正确,可以继续运行"
+      else
+          ui_print "版本不对,退出执行"
+          exit
+      fi
       if [[ $set_restore_backup -eq "1" ]];then
           restore_backup
           exit
@@ -651,9 +668,10 @@ superimg_extract() {
 
 run_project() {
   f_dir="$baze_dir/obraz" && mkdir -p "$f_dir"
-  get_super_block="$(cat "$setting" | sed -e '/^$/d' | sed -n "2p"  | awk '{print $2}')"
-  set_lpunpack="$(cat "$setting" | sed -e '/^$/d' | sed -n "3p"  | awk '{print $2}')"
-  set_restore_backup="$(cat "$setting" | sed -e '/^$/d' | sed -n "4p"  | awk '{print $2}')"
+  get_super_block="$(cat "$setting" | sed -e '/^$/d' | sed -n "3p"  | awk '{print $2}')"
+  set_lpunpack="$(cat "$setting" | sed -e '/^$/d' | sed -n "4p"  | awk '{print $2}')"
+  set_unlock="$(cat "$setting" | sed -e '/^$/d' | sed -n "5p"  | awk '{print $2}')"
+  set_restore_backup="$(cat "$setting" | sed -e '/^$/d' | sed -n "6p"  | awk '{print $2}')"
   #ui_print "get_super_block:$get_super_block"
   #ui_print "set_lpunpack:$set_lpunpack"
   #寻找super分区的位置
