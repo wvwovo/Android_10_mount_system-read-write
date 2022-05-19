@@ -1,4 +1,9 @@
 # 更新日志
+
+## 1.0.6
+- 增加可选择是否解锁super分区选项
+- 增加一个确认setting.txt版本功能，减少用错版本导致出错
+  
 ## 1.0.5
 - 增加还原功能,现在不会主动删提取的super_stock.bin文件(beta)
 - 如果出现还原失败，可能需要手动复制super_stock.bin，然后自己手动用linux dd命令或adb fastboot刷回去
