@@ -2,13 +2,17 @@
 - https://github.com/wvwovo/Android_10_mount_system-read-write
 # 只在ONLY A、VAB分区动态分区的手机做过测试,像AB分区等不知道是什么情况
 # 解锁system会导致系统无法自动升级,只能使用全量卡刷/线刷包手动升级
+# 扩容分区存在开机卡屏的可能，可以恢复提取的原super分区(super_stock.bin)来解决，也可以反复修改设置来试一试能不能顺利开机
 - 解锁安卓10的system分区并自动扩大分区(可以扩大多少取决于整个super分区还剩多少空间，有点super最大大小是8GB，有的是4.5GB，应该还有别的大小)
 - 可以指定选择扩大某个分区，要刷入模块两次，第一次生成基本的文件，然后去找'/data/local/super2rw/setting.txt'进行修改 
 - setting.txt的内容默认可能是这样子
 ```
-把1改成0为不扩大分区,1为扩大分区。每个分区能扩大多少，取决于剩余空间/需要扩区的数量,扩大后想再缩小就再刷一次，之后又想扩大还是再刷一次，循环扩大缩小;get_super_block和set_lpunpack是在setting.txt存在时依然强制获得分区并拆出img文件用的，默认不开
+把1改成0为不扩大分区,1为扩大分区。每个分区能扩大多少，取决于剩余空间/需要扩区的数量,扩大后想再缩小就再刷一次，之后又想扩大还是再刷一次，循环扩大缩小;get_super_block和set_lpunpack是在setting.txt存在时依然强制获得分区并拆出img文件用的,set_restore_backup为还原原来super.img，默认不开。set_unlock为是否解除只读状态
 get_super_block 0
-set_lpunpack 0
+set_lpunpack 1
+set_unlock 1
+set_restore_backup 0
+odm 1
 product 1
 system 1
 vendor 1
@@ -23,9 +27,9 @@ vendor 1
 - .gitignore
 - .gitattributes
 - LICENSE
+- CHANGELOG.md
 - README.md
 ```
-- 刷一遍扩大，两遍会缩小，三遍会扩大，四遍会缩小。。。
 - 中途不要重启或断电，刷完的结果默认会显示两到三个更新xxx分区失败，重启twrp就可以重新挂载上分区
 # 先用twrp备份super分区以备未来不时之需，如果twrp备份功能无效就要找其它方法备份，不过该脚本的super_stock.bin也算一个备份(这有可能后期被自己弄覆盖了)
 - 备份字库相关 https://www.coolapk.com/feed/21305538?shareKey=NWRlNDg1NzYwYjQyNjEzYjJlOTA~
