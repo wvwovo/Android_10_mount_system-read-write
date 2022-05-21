@@ -58,7 +58,7 @@ for i in `seq 0 5`; do tune2fs -l /dev/block/dm-$i>>/sdcard/my_tune2fs_output.tx
 - https://github.com/YAWAsau/backup_script 一些可执行文件和代码
 - https://forum.xda-developers.com/t/script-android-10-universal-mount-system-r-w-read-write.4247311/ systemrw_1.32_flashable.zip 一些可执行文件和代码
 
-## 其它
+## 其它可能出现的问题回答
 - 0
   安卓11可能也能用
 - 1
@@ -66,3 +66,7 @@ for i in `seq 0 5`; do tune2fs -l /dev/block/dm-$i>>/sdcard/my_tune2fs_output.tx
   https://zhuanlan.zhihu.com/p/365461315
 - 2
  红米9a 联发科 32位系统 安卓10和11也可以用，但要直接在twrp修改system分区还需要这个https://github.com/wvwovo/redmi9a_android10_twrp_mount_system_rw
+- 3
+ 如果出现不能恢复super分区为只读状态或扩容后比原来还小，那可能是因为原始的super_stock.bin已经被修改后的再提取super分区覆盖掉了，旧版本存在自动删除super_stock.bin的可能。解决方法就是找到其它super分区备份，例如twrp自带的备份，备份全字库的备份等
+- 4
+ 如果给system分区扩容最大数量且处于解锁状态后会卡开机，可以考虑还原原super分区或者减小扩容system分区数量，还有可以换个magisk版本试试（问题发现在安卓11-vab分区）
