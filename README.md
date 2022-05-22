@@ -70,3 +70,5 @@ for i in `seq 0 5`; do tune2fs -l /dev/block/dm-$i>>/sdcard/my_tune2fs_output.tx
  如果出现不能恢复super分区为只读状态或扩容后比原来还小，那可能是因为原始的super_stock.bin已经被修改后的再提取super分区覆盖掉了，旧版本存在自动删除super_stock.bin的可能。解决方法就是找到其它super分区备份，例如twrp自带的备份，备份全字库的备份等
 - 4
  如果给system分区扩容最大数量且处于解锁状态后会卡开机，可以考虑还原原super分区或者减小扩容system分区数量，还有可以换个magisk版本试试（问题发现在安卓11-vab分区）
+- 5
+  maigsk的挂载文件可以无视system分区大小，所以如果不解锁只扩容就没什么意义了。（默认解锁system）
