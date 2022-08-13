@@ -60,7 +60,7 @@ for i in `seq 0 5`; do tune2fs -l /dev/block/dm-$i>>/sdcard/my_tune2fs_output.tx
 
 ## 其它可能出现的问题回答
 - 0
-  安卓11可能也能用
+  安卓11-12可能也能用
 - 1
   有些手机的分区格式是erofs，天然就是只读属性
   https://zhuanlan.zhihu.com/p/365461315
@@ -72,3 +72,5 @@ for i in `seq 0 5`; do tune2fs -l /dev/block/dm-$i>>/sdcard/my_tune2fs_output.tx
  如果给system分区扩容最大数量且处于解锁状态后会卡开机，可以考虑还原原super分区或者减小扩容system分区数量，还有可以换个magisk版本试试（问题发现在安卓11-vab分区）
 - 5
   maigsk的挂载文件可以无视system分区大小，所以如果不解锁只扩容就没什么意义了。（默认解锁system）
+- 6
+  如果碰见安卓12且手机挂载分区在b分区的，可以先刷入https://forum.xda-developers.com/t/script-android-10-universal-mount-system-r-w-read-write.4247311/，再刷入两次本项目模块

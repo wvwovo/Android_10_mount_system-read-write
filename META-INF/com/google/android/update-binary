@@ -1,7 +1,7 @@
 #!/sbin/sh
 #magisks是用/sbin/sh,所以这里也用这个
 #/system/bin/sh
-#v1.0.7
+#v1.0.8
 #上面两个可能导致刷入zip错误255
 #https://www.jianshu.com/p/b03ad01acd69 CRLF、CR、LF详解;要选择UNIX(LF),否则刷入时也会报255错误;E:Can't execute '/tmp/updater': No such file or directory,Updater过程结束，错误：255
 #https://forum.xda-developers.com/t/dev-template-complete-shell-script-flashable-zip-replacement-signing-script.2934449/page-5
@@ -49,7 +49,7 @@ ui_print "==============================================="
 ui_print "|  Run the script to convert the Super to RW  |"
 ui_print "==============================================="
 
-banben="v1.0.7"
+banben="v1.0.8"
 ui_print "$banben"
 #判断是否有root
 if [ `whoami` != "root" ]; then ui_print "No root detected. Please try again as root. Abort"; exit 1; else ui_print "find root"; fi
@@ -84,7 +84,6 @@ fi
 rm -rf $baze_dir"/file_size.txt"
 rm -rf $baze_dir"/lpdump.txt"
 rm -rf $baze_dir"/my_tune2fs_output.txt"
-rm -rf $baze_dir"/s_config.txt"
 rm -rf $baze_dir"/ddlog.txt"
 
 #创建/data/local/super2rw文件夹
@@ -372,7 +371,12 @@ make_super() {
   #  supermod=$out_dir
   #fi
   #创建super_mod.bin需要这个文件里的参数
-  super_config="./s_config.txt"
+  if [[ $skip_build_s_config -eq "1" ]];then
+      super_config="./s_config2.txt"
+      #用来防止覆盖
+  else
+      super_config="./s_config.txt"
+  fi
   
   #记录原始各分区有多大
   size_source="./file_size.txt"
@@ -417,12 +421,15 @@ make_super() {
   #https://blog.51cto.com/baser/1360120 shell脚本创建文件
   #同时不存在setting.txt才会创建，set_lpunpack需要为1以保证不解锁super分区功能正常
   if [[ ! -f $setting ]];then
-    echo -ne "v1.0.7\n" >> $setting
-    echo -ne "把1改成0为不扩大分区,1为扩大分区。每个分区能扩大多少，取决于剩余空间/需要扩区的数量,扩大后想再缩小就再刷一次，之后又想扩大还是再刷一次，循环扩大缩小;get_super_block和set_lpunpack是在setting.txt存在时依然强制获得分区并拆出img文件用的,set_restore_backup为还原原来super.img，默认不开。set_unlock为是否解除只读状态\n" >> $setting
+    echo -ne "v1.0.8\n" >> $setting
+    echo -ne "把1改成0为不扩大分区,1为扩大分区。每个分区能扩大多少，取决于剩余空间/需要扩区的数量,扩大后想再缩小就再刷一次，之后又想扩大还是再刷一次，循环扩大缩小;get_super_block和set_lpunpack是在setting.txt存在时依然强制获得分区并拆出img文件用的,set_restore_backup为还原原来super.img，默认不开。set_unlock为是否解除只读状态。set_flash是否要刷入。skip_build_s_config不生成合成super需要用的s_config.txt。不提取super直接刷入自定义的super。\n" >> $setting
     echo -ne "get_super_block 0\n" >> $setting
     echo -ne "set_lpunpack 1\n" >> $setting
     echo -ne "set_unlock 1\n" >> $setting
     echo -ne "set_restore_backup 0\n" >> $setting
+    echo -ne "set_flash 1\n" >> $setting
+    echo -ne "skip_build_s_config 0\n" >> $setting
+    echo -ne "direct_brush_in 0\n" >> $setting
     for i in $f_dir/*.img; do
       len2=${#i}
       #ui_print "$len2"
@@ -454,7 +461,7 @@ make_super() {
      exit 1
   fi
   rr=0
-  start=7
+  start=10
   iii=$start
   while [[ $iii -le $r ]]; do
     if [[ $(cat "$setting" | sed -e '/^$/d' | sed -n "${iii}p" | awk '{print $2}') -eq "1" ]];then
@@ -562,6 +569,8 @@ make_super() {
 
   #得到所有参数
   s_config=$(cat "./s_config.txt")
+  ui_print "s_config"
+
   '''
   以下为部分结果记录
   Invalid sparse file format at header magic
@@ -579,13 +588,32 @@ make_super() {
   fi
   ui_print "- Flash Super.mod.img. Please wait..."
 
-  #把合成出来的super_mod.bin刷回super分区里
-  if ( ! simg2img $supermod $super_block ); then
-    abort "- Error flash"
+  #会覆盖源文件
+  if [[ $set_flash -eq "1" ]];then
+      #把合成出来的super_mod.bin刷回super分区里
+      if ( ! simg2img $supermod $super_block ); then
+        abort "- Error flash"
+      else
+        ui_print "- Flashed successfully."
+        success
+      fi
   else
-    ui_print "- Flashed successfully."
-    success
+      ui_print "- no flash"
+      exit
   fi
+}
+
+direct_brush_in2()
+{
+    supermod2="$f_dir/super_mod.bin"
+    ui_print "$supermod2:supermod2:,super_block:$super_block"
+    #把合成出来的super_mod.bin刷回super分区里
+    if ( ! simg2img $supermod2 $super_block ); then
+      abort "- Error flash"
+    else
+      ui_print "- Flashed successfully."
+      success
+    fi
 }
 
 get_super_block2()
@@ -610,6 +638,7 @@ set_lpunpack2()
 {
   ui_print "- Extracting partitions from Super..."
   #分解super_stock.bin，获得system.img,product.img,vendor.img等文件
+  ui_print "dump_dir:$dump_dir,f_dir:$f_dir"
   if ( lpunpack "$dump_dir" "$f_dir" ); then
       if ( ! ls -1 "$f_dir"/*.img>/dev/null ); then
           abort "- Extracted partitions not be found. Please try again."
@@ -654,9 +683,21 @@ superimg_extract() {
           ui_print "setting.txt版本不对,退出执行"
           exit
       fi
+      #恢复原super分区
       if [[ $set_restore_backup -eq "1" ]];then
           restore_backup
           exit
+      fi
+      #直接刷入已存在的super_mod.bin
+      if [[ $direct_brush_in -eq "1" ]];then
+          direct_brush_in2
+          exit
+      fi
+      if [[ $skip_build_s_config -eq "1" ]];then
+          ui_print "skip_build_s_config"
+      else
+          rm -rf $baze_dir"/s_config.txt"
+          ui_print "del s_config.txt"
       fi
       #会覆盖源文件
       if [[ $get_super_block -eq "1" ]];then
@@ -679,6 +720,9 @@ run_project() {
   set_lpunpack="$(cat "$setting" | sed -e '/^$/d' | sed -n "4p"  | awk '{print $2}')"
   set_unlock="$(cat "$setting" | sed -e '/^$/d' | sed -n "5p"  | awk '{print $2}')"
   set_restore_backup="$(cat "$setting" | sed -e '/^$/d' | sed -n "6p"  | awk '{print $2}')"
+  set_flash="$(cat "$setting" | sed -e '/^$/d' | sed -n "7p"  | awk '{print $2}')"
+  skip_build_s_config="$(cat "$setting" | sed -e '/^$/d' | sed -n "8p"  | awk '{print $2}')"
+  direct_brush_in="$(cat "$setting" | sed -e '/^$/d' | sed -n "9p"  | awk '{print $2}')"
   #ui_print "get_super_block:$get_super_block"
   #ui_print "set_lpunpack:$set_lpunpack"
   #寻找super分区的位置
