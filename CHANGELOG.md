@@ -3,9 +3,9 @@
 ## 1.0.8
 - setting.txt新增三个可选项。
 ```
-  set_flash是否要刷入。
-  skip_build_s_config不生成合成super需要用的s_config.txt。
-  不提取super直接刷入自定义的super。
+  1、set_flash是否要刷入。
+  2、skip_build_s_config不生成合成super需要用的s_config.txt。
+  3、不提取super直接刷入自定义的super。
 ```
 
 ## 1.0.7
