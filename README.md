@@ -74,3 +74,5 @@ for i in `seq 0 5`; do tune2fs -l /dev/block/dm-$i>>/sdcard/my_tune2fs_output.tx
   maigsk的挂载文件可以无视system分区大小，所以如果不解锁只扩容就没什么意义了。（默认解锁system）
 - 6
   如果碰见安卓12且手机挂载分区在b分区的，可以先刷入https://forum.xda-developers.com/t/script-android-10-universal-mount-system-r-w-read-write.4247311/ ，再刷入两次本项目模块
+- 7
+  装完magisk模块后，要重启手机进入系统后，再重新进入twrp刷本项目的twrp模块，反之同理。否则，可能会高通报错
